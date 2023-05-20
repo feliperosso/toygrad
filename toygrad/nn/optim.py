@@ -4,7 +4,6 @@ optim.py
 
 # Load packages
 import numpy as np
-from toygrad.engine import Tensor
 
 # - ADAM -
 class ADAM:

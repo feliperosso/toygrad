@@ -31,7 +31,7 @@ class nnModule:
 class Dropout(nnModule):
 
     def __init__(self, dropout_rate):
-        super.__init__()
+        super().__init__()
         self.dropout_rate = dropout_rate # If dropout_rate = 0, mask = 1
 
     def forward(self, input:Tensor) -> Tensor:

@@ -1,19 +1,17 @@
-
 # Load packages
-import math
 import numpy as np
 import matplotlib.pyplot as plt
 
 # Load modules
 from toygrad.engine import Tensor
-from toygrad.nn.layers import nnModule, Linear
+from toygrad.nn.layers import nnModule, Linear, Dropout
 from toygrad.nn.data_utils import MNISTDataLoader
 
 
 # - Fully Connected Network
 class FCNetwork(nnModule):
 
-    def __init__(self, layers_size):
+    def __init__(self, layers_size, dropout_rate):
         super().__init__()
         # Store values
         self.layers_size = layers_size
@@ -26,6 +24,8 @@ class FCNetwork(nnModule):
         for layer in self.linear_layers:
             self.addParameter(layer.parameters[0])
             self.addParameter(layer.parameters[1])
+        # Create dropout layer
+        self.dropout = Dropout(dropout_rate)
         # Count number of learning parameters
         self.number_parameters = np.sum(p.item.size for p in self.parameters if p.requires_grad)
         print(f'The model has {self.number_parameters:,} learnable parameters.')
@@ -33,9 +33,13 @@ class FCNetwork(nnModule):
     def forward(self, input:np.array):
         """ input: (batch_size, dim_in)
             output (logits): (batch_size, dim_out) """
+        # Applies dropout to all layers but the last one
         out = Tensor(input)
-        for lin_layer in self.linear_layers:
-            out = lin_layer(out)
+        for ind, lin_layer in enumerate(self.linear_layers):
+            if ind != self.num_layers - 2:
+                out = self.dropout(lin_layer(out))
+            else:
+                out = lin_layer(out)
         return out
     
     def accuracy(self, data, batch_size):

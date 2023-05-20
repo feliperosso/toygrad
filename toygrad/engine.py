@@ -206,8 +206,40 @@ class Tensor:
             out.__init__(out.item, children=(self, ), requires_grad=True)
             # Backward
             def _backward():
-                self.grad
                 self.grad += (self.item > 0)*out.grad
+            out._backward = _backward
+        return out
+
+    # - Reshape -
+    def reshape(self, new_shape):
+        # Forward
+        out = Tensor(self.item.reshape(new_shape))
+        if self.requires_grad:
+            # Update tensor parameters
+            out.__init__(out.item, children=(self, ), requires_grad=True)
+            # Backward
+            def _backward():
+                self.grad += out.grad.reshape(self.item.shape)
+            out._backward = _backward
+        return out
+
+    # - Sum -
+    def sum(self, dims_sumed=None):
+        if dims_sumed == None:
+            dims_sumed = tuple(range(len(self.item.shape)))
+        # Forward
+        out = Tensor(self.item.sum(dims_sumed))
+        if self.requires_grad:
+            # Update tensor parameters
+            out.__init__(out.item, children=(self, ), requires_grad=True)
+            # Backward
+            def _backward():
+                # Set to 1 the size of input dims where we sum
+                mod_in_shape = list(self.item.shape)
+                for d in dims_sumed:
+                    mod_in_shape[d] = 1
+                # Reshape and broadcast
+                self.grad += np.broadcast_to(out.grad.reshape(mod_in_shape), self.item.shape)
             out._backward = _backward
         return out
 
