@@ -357,6 +357,47 @@ def test_sum():
     s3 = tuple(np.random.randint(1, 10, size=(4, )))
     test_single_sum(s3)
 
+def test_sigmoid():
+    
+    def test_single_sigmoid(size):
+        x = np.random.uniform(-1, -1, size)
+        out = 1/(1 + np.exp(x))
+        gradient = np.random.uniform(-1, 1, out.shape)
+
+        # - My Tensor computation -
+        xT = Tensor(x, requires_grad=True)
+        gradientT = gradient 
+        outT = xT.sigmoid()
+        outT.backward(gradientT)
+        xT_grad = xT.grad
+
+        # - Pytorch computation -
+        xtorch = torch.from_numpy(x).requires_grad_(True)
+        gradienttorch = torch.from_numpy(gradient)
+        outtorch = 1/(1 + torch.exp(-xtorch))
+        outtorch.backward(gradienttorch)
+        xtorch_grad = xtorch.grad
+
+        # - Testing -
+        # Forward
+        assert torch.allclose(to_torch(outT.item), outtorch), \
+            "Forward evaluation failed."
+        assert to_torch(outT.item).shape == outtorch.shape, \
+            "Forward shapes do not match."
+        # Backward
+        assert torch.allclose(to_torch(xT_grad), xtorch_grad), \
+                'Backward evaluation failed.'
+        assert to_torch(xT_grad).shape == xtorch_grad.shape, \
+                'Backward shapes do not match.'
+    
+    # - Test cases -
+    s1 = np.random.randint(1, 10, size=(1, )) # Scalar
+    test_single_sigmoid(s1)
+    s2 = np.random.randint(1, 10, size=(5, )) # Tensor
+    test_single_sigmoid(s2)
+    s3 = np.random.randint(1, 10, size=(5, )) # Tensor
+    test_single_sigmoid(s3)
+
 # - Test a combination of the above operations -
 def test_full():
     # Initialize random inputs

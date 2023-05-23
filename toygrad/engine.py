@@ -40,7 +40,7 @@ class Tensor:
             y_prob: (num_batches, nn_dim_out) """
         self.check_instance(y_prob)
         # Forward
-        batch_loss = np.log(np.sum(np.exp(self.item), axis=-1)) - np.einsum('ij,ij->i',y_prob.item, self.item)
+        batch_loss = np.log(np.sum(np.exp(self.item), axis=-1)) - np.einsum('ij,ij->i', y_prob.item, self.item)
         out = Tensor(batch_loss.mean())
         if self.requires_grad:
             # Update parameters
@@ -243,13 +243,26 @@ class Tensor:
             out._backward = _backward
         return out
 
+    # - Sigmoid -
+    def sigmoid(self):
+        # Forward 
+        out = Tensor(1/(1 + np.exp(-self.item)))
+        if self.requires_grad:
+            # Update tensor parameters
+            out.__init__(out.item, children=(self, ), requires_grad=True)
+            # Backward
+            def _backward():
+                self.grad += (np.exp(self.item)/(1 + np.exp(self.item))**2)*out.grad
+            out._backward = _backward
+        return out
+
     # - Backward -
     def backward(self, gradient=np.array(1)):
         """ gradient is np.array that must have the shape of self.item """
         # Check the gradient dimension is correct
         assert gradient.shape == self.item.shape, \
                 "A gradient with the same shape as the item"\
-                "must be supplied"
+                " must be supplied"
         # Topological ordering
         # Depth-first search of the graph to ensure
         # the gradients are computed the right way
