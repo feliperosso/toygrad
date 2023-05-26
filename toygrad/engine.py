@@ -3,11 +3,12 @@ engine.py
 """
 
 # Load packages
+from __future__ import annotations
 import numpy as np
 
 class Tensor:
 
-    def __init__(self, value, children=(), requires_grad=False):
+    def __init__(self, value: np.ndarray, children: tuple=(), requires_grad: bool=False) -> None:
         # Forward
         self.item = value
         # Backward
@@ -18,13 +19,13 @@ class Tensor:
             self._backward = lambda: None
     
     # - Aux functions -
-    def check_instance(self, other):
+    def check_instance(self, other) -> None:
         """ Checks if 'other' element is an instance of Tensor class """
         if not isinstance(other, Tensor):
             raise Exception("The 'other' element is not an instance of the Tensor class.")
     
     @staticmethod
-    def crop_extra_dims(pre_grad: np.array, reference):
+    def crop_extra_dims(pre_grad: np.ndarray, reference: np.ndarray) -> np.ndarray:
         """" Given a pre_grad, it removes additional length 1 dims
         on the left that can sometimes be present due to broadcasting"""
         # Remove additional length 1 dims, if present
@@ -35,7 +36,7 @@ class Tensor:
             return pre_grad
 
     # - Cross Entropy -
-    def cross_entropy(self, y_prob):
+    def cross_entropy(self, y_prob: Tensor) -> Tensor:
         """ self is nn_logits: (num_batches, nn_dim_out)
             y_prob: (num_batches, nn_dim_out) """
         self.check_instance(y_prob)
@@ -53,7 +54,7 @@ class Tensor:
         return out
 
     # - Addition and Subtraction (+/-) -
-    def __add__(self, other):
+    def __add__(self, other: Tensor) -> Tensor:
         self.check_instance(other)
         # Forward
         out = Tensor(self.item + other.item)
@@ -63,7 +64,7 @@ class Tensor:
             # Backward
             def _backward():
                 # - Auxiliary function that computes gradient of each summand -
-                def sum_grad(sumand, sum_result, gradient):
+                def sum_grad(sumand: np.ndarray, sum_result: np.ndarray, gradient: np.ndarray) -> np.ndarray:
                     pre_grad = np.ones(sumand.shape)*gradient
                     # Account for having a sumand with smaller shape than sum_result 
                     # which can happen when broadcasting
@@ -91,17 +92,46 @@ class Tensor:
             out._backward = _backward            
         return out
     
-    def __radd__(self, other):
+    def __radd__(self, other: Tensor) -> Tensor:
         return self + other
 
-    def __sub__(self, other):
+    def __sub__(self, other: Tensor) -> Tensor:
         return self + (-other)
 
-    def __rsub__(self, other):
+    def __rsub__(self, other: Tensor) -> Tensor:
         return other + (-self)
 
+    # - Get Item (slicing) -
+    def __getitem__(self, slicing) -> Tensor:
+        # Forward
+        out = Tensor(self.item[slicing])
+        # Backward
+        if self.requires_grad:
+            # Update tensor parameters
+            out.__init__(out.item, children=(self, ), requires_grad=True)
+            # Backward
+            def _backward():
+                grad = np.zeros(self.item.shape)
+                grad[slicing] = out.grad
+                self.grad += grad
+            out._backward = _backward
+        return out
+
+    # - Log -
+    def log(self) -> Tensor:
+        # Forward
+        out = Tensor(np.log(self.item))
+        if self.requires_grad:
+            # Update out tensor parameters
+            out.__init__(out.item, children=(self, ), requires_grad=True)
+            # Backward
+            def _backward():
+                self.grad += out.grad/self.item
+            out._backward = _backward
+        return out
+
     # - MatMul (@) -
-    def matmul(self, other):
+    def matmul(self, other: Tensor) -> Tensor:
         self.check_instance(other)
         # Forward
         out = Tensor(self.item@other.item)
@@ -161,7 +191,7 @@ class Tensor:
         return out
 
     # - Elementwise mul (*) -
-    def __mul__(self, other):
+    def __mul__(self, other: Tensor) -> Tensor:
         self.check_instance(other)
         # Forward
         out = Tensor(self.item*other.item)
@@ -194,11 +224,11 @@ class Tensor:
             out._backward = _backward
         return out
 
-    def __neg__(self):
+    def __neg__(self) -> Tensor:
         return self * Tensor(-1)
 
     # - ReLU -
-    def relu(self):
+    def relu(self) -> Tensor:
         # Forward
         out = Tensor((self.item > 0)*self.item)
         if self.requires_grad:
@@ -211,7 +241,7 @@ class Tensor:
         return out
 
     # - Reshape -
-    def reshape(self, new_shape):
+    def reshape(self, new_shape) -> Tensor:
         # Forward
         out = Tensor(self.item.reshape(new_shape))
         if self.requires_grad:
@@ -224,7 +254,7 @@ class Tensor:
         return out
 
     # - Sum -
-    def sum(self, dims_sumed=None):
+    def sum(self, dims_sumed: tuple=None) -> Tensor:
         if dims_sumed == None:
             dims_sumed = tuple(range(len(self.item.shape)))
         # Forward
@@ -244,7 +274,7 @@ class Tensor:
         return out
 
     # - Sigmoid -
-    def sigmoid(self):
+    def sigmoid(self) -> Tensor:
         # Forward 
         out = Tensor(1/(1 + np.exp(-self.item)))
         if self.requires_grad:
@@ -256,16 +286,87 @@ class Tensor:
             out._backward = _backward
         return out
 
+    # - Softmax -
+    def softmax(self, axis: int=-1) -> Tensor:
+        # Forward
+        max_regulator = np.max(self.item, axis=axis, keepdims=True)
+        in_exp = np.exp(self.item - max_regulator)
+        norm = np.sum(in_exp, axis=axis, keepdims=True)
+        out = Tensor(in_exp/norm)
+        if self.requires_grad:
+            # Update tensor parameters
+            out.__init__(out.item, children=(self, ), requires_grad=True)
+            # Backward
+            def _backward():
+                # Move axis to the right if not there
+                moved_axis = False
+                if axis != -1 and axis != len(self.item.shape) - 1:
+                    self.item = np.moveaxis(self.item, axis, -1)
+                    out.grad = np.moveaxis(out.grad, axis, -1)
+                    moved_axis = True
+                # Forward objects
+                max_regulator = np.max(self.item, axis=-1, keepdims=True)
+                in_exp = np.exp(self.item - max_regulator)
+                norm = np.sum(in_exp, axis=-1, keepdims=True)
+                # Compute gradient
+                t1 = in_exp*norm*out.grad
+                t2 = in_exp*np.sum(in_exp*out.grad, axis=-1)[..., None]
+                if moved_axis:
+                    self.grad += np.moveaxis((t1 - t2)/(norm**2), -1, axis)
+                else:
+                    self.grad += (t1 - t2)/(norm**2)
+                # Return axis of self
+                if moved_axis:
+                    self.item = np.moveaxis(self.item, -1, axis)
+            out._backward = _backward
+        return out
+
+    # - Divide -
+    def __truediv__(self, other: Tensor) -> Tensor:
+        self.check_instance(other)
+        # Forward
+        out = Tensor(self.item/other.item)
+        if self.requires_grad or other.requires_grad:
+            # Update tensor parameters
+            out.__init__(out.item, children=(self, other), requires_grad=True)
+            # Backward
+            def _backward():
+                # Identify broadcasted dims we need to sum over
+                self_shape = self.item.shape
+                other_shape = other.item.shape
+                out_grad_shape = out.grad.shape
+                # Enlarge shapes if required
+                self_shape = tuple([-1]*(len(out_grad_shape) - len(self_shape))) + self_shape
+                other_shape = tuple([-1]*(len(out_grad_shape) - len(other_shape))) + other_shape
+                # Find enlarged dims
+                self_enlarged_dims, other_enlarged_dims = (), ()
+                for dim, (se_d, ot_d, ou_d) in enumerate(zip(self_shape, other_shape, out_grad_shape)):
+                    if se_d != ou_d:
+                        self_enlarged_dims += (dim, )
+                    if ot_d != ou_d:
+                        other_enlarged_dims += (dim, )
+                if self.requires_grad:
+                    pre_grad = np.sum(out.grad/other.item, self_enlarged_dims, keepdims=True)
+                    self.grad += self.crop_extra_dims(pre_grad, self)
+                if other.requires_grad:
+                    pre_grad = np.sum(self.item/(out.grad*out.grad), other_enlarged_dims, keepdims=True)
+                    other.grad += self.crop_extra_dims(pre_grad, other)
+            # Update _backward function of out                    
+            out._backward = _backward
+        return out
+
+    #def __rtruediv__(self, other: Tensor) -> Tensor:
+    #   return 
+        
     # - Backward -
-    def backward(self, gradient=np.array(1)):
+    def backward(self, gradient: np.ndarray=np.array(1)):
         """ gradient is np.array that must have the shape of self.item """
         # Check the gradient dimension is correct
         assert gradient.shape == self.item.shape, \
                 "A gradient with the same shape as the item"\
                 " must be supplied"
-        # Topological ordering
         # Depth-first search of the graph to ensure
-        # the gradients are computed the right way
+        # the gradients are computed in the right order
         topo = []
         visited = set()
         def build_topo(v):

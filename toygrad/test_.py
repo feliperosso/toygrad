@@ -18,6 +18,13 @@ def to_torch(input):
     else:
         return torch.from_numpy(np.array([input])).squeeze()
 
+# - Compare tensor function -
+def compare_tensors(np_tensor, torch_tensor, error_msg:str):
+    assert torch.allclose(to_torch(np_tensor), torch_tensor), \
+            error_msg
+    assert to_torch(np_tensor).shape == torch_tensor.shape, \
+            'Tensor shapes do not match.'
+
 # - Cross Entropy -
 def test_cross_entropy():
 
@@ -42,17 +49,15 @@ def test_cross_entropy():
         ytorch_prob = torch.from_numpy(y_prob)
         gradienttorch = torch.from_numpy(np.array([gradient])).squeeze()
         outtorch = torch.nn.functional.cross_entropy(
-            xtorch_logits, ytorch_prob)
+                                            xtorch_logits, ytorch_prob)
         outtorch.backward(gradienttorch)
         xtorch_logits_grad = xtorch_logits.grad
 
         # - Testing -
         # Forward
-        assert torch.allclose(to_torch(outT.item), outtorch), \
-            'Forward evaluation failed.'
+        compare_tensors(outT.item, outtorch, 'Forward evaluation failed.')
         # Backward
-        assert torch.allclose(to_torch(xT_logits_grad), xtorch_logits_grad), \
-            'Backward evaluation failed.'
+        compare_tensors(xT_logits_grad, xtorch_logits_grad, 'Backward evaluation failed.')
 
     # - Test cases -
     s1 = np.random.randint(1, 20, size=(6,))
@@ -64,9 +69,6 @@ def test_cross_entropy():
 def test_add():
 
     def test_single_add(size1, size2):
-        """ Computes feedfoward and backward of addition of two tensors
-        (allowing for broadcasting) and compares with Pytorch implementation.
-        If succesful, nothing should happen. """
         # Initialize random sumands
         x1 = np.random.uniform(-1, 1, size=size1)
         x2 = np.random.uniform(-1, 1, size=size2)
@@ -91,18 +93,10 @@ def test_add():
 
         # - Testing -
         # Forward
-        assert torch.allclose(to_torch(outT.item), outtorch), \
-            'Forward evaluation failed.'
+        compare_tensors(outT.item, outtorch, 'Forward evaluation failed.')
         # Backward
-        assert torch.allclose(to_torch(x1T_grad), x1torch_grad), \
-            'Backward evaluation failed.'
-        assert to_torch(x1T_grad).shape == x1torch_grad.shape, \
-            'Grad shapes do not match.'
-
-        assert torch.allclose(to_torch(x2T_grad), x2torch_grad), \
-            'Backward evaluation failed'
-        assert to_torch(x2T_grad).shape == x2torch_grad.shape, \
-            'Grad shapes do not match.'
+        compare_tensors(x1T_grad, x1torch_grad, 'Backward evaluation failed.')
+        compare_tensors(x2T_grad, x2torch_grad, 'Backward evaluation failed.')
 
     # Test cases (no broadcasting)
     test_single_add((7, ), (7, ))
@@ -114,6 +108,75 @@ def test_add():
     test_single_add((3, 1, 2), (1, 1))
     test_single_add((37, 13, 1, 7, 1), (14, 1, 9))
     test_single_add((1, 13, 5, 1), (2, 10, 1, 1, 33))
+
+# - Get Item (slicing) -
+def test_get_item():
+
+    def test_single_get_item(size, slicing: slice):
+        x = np.random.uniform(-1, 1, size)
+        out = x[slicing]
+        gradient = np.random.uniform(-1, 1, out.shape)
+
+        # - My Tensor computation -
+        xT = Tensor(x, requires_grad=True)
+        gradientT = gradient
+        outT = xT[slicing]
+        outT.backward(gradientT)
+        xT_grad = xT.grad
+
+        # - Pytorch computation -
+        xtorch = torch.from_numpy(x).requires_grad_(True)
+        gradienttorch = torch.from_numpy(gradient)
+        outtorch = xtorch[slicing]
+        outtorch.backward(gradienttorch)
+        xtorch_grad = xtorch.grad
+
+        # - Testing -
+        # Forward
+        compare_tensors(outT.item, outtorch, "Forward evaluation failed.")
+        # Backward
+        compare_tensors(xT_grad, xtorch_grad, 'Backward evaluation failed.')
+    
+    # - Test cases -
+    test_single_get_item((2, ), np.s_[0])
+    test_single_get_item((5, 8, 1), np.s_[:3, :5, :])
+    test_single_get_item((11, 3, 7), np.s_[2:6, 2:, 1:4])
+    # Advanced indexing
+    test_single_get_item((4, 2), np.s_[range(4), [0, 1, 0, 0]])
+
+# - Log -
+def test_log():
+
+    def test_single_log(size):
+        # Initialize random tensor and gradient
+        x = np.random.uniform(0.1, 5, size)
+        gradient = np.random.uniform(-1, 1, size)
+
+        # - My Tensor computation -
+        xT = Tensor(x, requires_grad=True)
+        gradientT = gradient
+        outT = xT.log()
+        outT.backward(gradientT)
+        xT_grad = xT.grad
+
+        # - Pytorch computation -
+        xtorch = torch.from_numpy(x).requires_grad_(True)
+        gradienttorch = torch.from_numpy(gradient)
+        outtorch = torch.log(xtorch)
+        outtorch.backward(gradienttorch)
+        xtorch_grad = xtorch.grad
+
+        # - Testing -
+        # Forward
+        compare_tensors(outT.item, outtorch, 'Forward evaluation failed.')
+        # Backward
+        compare_tensors(xT_grad, xtorch_grad, 'Backward evaluation failed.')
+    
+    # - Test cases -
+    s1 = tuple(np.random.randint(1, 10, size=(1,)))
+    test_single_log(s1)
+    s2 = tuple(np.random.randint(1, 10, size=(5,)))
+    test_single_log(s2)
 
 # - Matrix Multiplication (@) -
 def test_matmul():
@@ -143,18 +206,10 @@ def test_matmul():
 
         # - Testing -
         # Forward
-        assert torch.allclose(to_torch(outT.item), outtorch), \
-            'Forward evaluation failed.'
+        compare_tensors(outT.item, outtorch, 'Forward evaluation failed.')
         # Backward
-        assert torch.allclose(to_torch(vT_grad), vtorch_grad), \
-            'Backward evaluation failed.'
-        assert to_torch(vT_grad).shape == vtorch_grad.shape, \
-            'Grad shapes do not match.'
-
-        assert torch.allclose(to_torch(wT_grad), wtorch_grad), \
-            'Backward evaluation failed'
-        assert to_torch(wT_grad).shape == wtorch_grad.shape, \
-            'Grad shapes do not match.'
+        compare_tensors(vT_grad, vtorch_grad, 'Backward evaluation failed.')
+        compare_tensors(wT_grad, wtorch_grad, 'Backward evaluation failed.')
 
     # - Test cases -
     # Vector-Vector dot product
@@ -210,18 +265,10 @@ def test_mul():
 
         # - Testing -
         # Forward
-        assert torch.allclose(to_torch(outT.item), outtorch), \
-            'Forward evaluation failed.'
+        compare_tensors(outT.item, outtorch, 'Forward evaluation failed.')
         # Backward
-        assert torch.allclose(to_torch(vT_grad), vtorch_grad), \
-            'Backward evaluation failed.'
-        assert to_torch(vT_grad).shape == vtorch_grad.shape, \
-            'Grad shapes do not match.'
-
-        assert torch.allclose(to_torch(wT_grad), wtorch_grad), \
-            'Backward evaluation failed'
-        assert to_torch(wT_grad).shape == wtorch_grad.shape, \
-            'Grad shapes do not match.'
+        compare_tensors(vT_grad, vtorch_grad, 'Backward evaluation failed.')
+        compare_tensors(wT_grad, wtorch_grad, 'Backward evaluation failed.')
 
     # - Test cases -
     # No broadcasting
@@ -260,11 +307,9 @@ def test_relu():
 
         # - Testing -
         # Forward
-        assert torch.allclose(to_torch(outT.item), outtorch), \
-            'Forward evaluation failed.'
+        compare_tensors(outT.item, outtorch, 'Forward evaluation failed.')
         # Backward
-        assert torch.allclose(to_torch(xT_grad), xtorch_grad), \
-            'Backward evaluation failed.'
+        compare_tensors(xT_grad, xtorch_grad, 'Backward evaluation failed.')
 
     # - Test cases -
     s1 = tuple(np.random.randint(1, 10, size=(3,)))
@@ -295,15 +340,9 @@ def test_reshape():
 
         # - Testing -
         # Forward
-        assert torch.allclose(to_torch(outT.item), outtorch), \
-                'Forward evaluation failed.'
-        assert to_torch(outT.item).shape == outtorch.shape, \
-                'Forward shapes do not match.'
+        compare_tensors(outT.item, outtorch, 'Forward evaluation failed.')
         # Backward
-        assert torch.allclose(to_torch(xT_grad), xtorch_grad), \
-                'Backward evaluation failed.'
-        assert to_torch(xT_grad).shape == xtorch_grad.shape, \
-                'Backward shapes do not match.'
+        compare_tensors(xT_grad, xtorch_grad, 'Backward evaluation failed.')
     
     # - Test cases -
     s1 = np.random.randint(1, 10, size=(3, ))
@@ -339,15 +378,9 @@ def test_sum():
 
         # - Testing -
         # Forward
-        assert torch.allclose(to_torch(outT.item), outtorch), \
-            "Forward evaluation failed."
-        assert to_torch(outT.item).shape == outtorch.shape, \
-            "Forward shapes do not match."
+        compare_tensors(outT.item, outtorch, "Forward evaluation failed.")
         # Backward
-        assert torch.allclose(to_torch(xT_grad), xtorch_grad), \
-                'Backward evaluation failed.'
-        assert to_torch(xT_grad).shape == xtorch_grad.shape, \
-                'Backward shapes do not match.'
+        compare_tensors(xT_grad, xtorch_grad, 'Backward evaluation failed.')
     
     # - Test cases -
     s1 = tuple(np.random.randint(1, 10, size=(3, )))
@@ -357,6 +390,7 @@ def test_sum():
     s3 = tuple(np.random.randint(1, 10, size=(4, )))
     test_single_sum(s3)
 
+# - Sigmoid -
 def test_sigmoid():
     
     def test_single_sigmoid(size):
@@ -380,15 +414,9 @@ def test_sigmoid():
 
         # - Testing -
         # Forward
-        assert torch.allclose(to_torch(outT.item), outtorch), \
-            "Forward evaluation failed."
-        assert to_torch(outT.item).shape == outtorch.shape, \
-            "Forward shapes do not match."
+        compare_tensors(outT.item, outtorch, "Forward evaluation failed.")
         # Backward
-        assert torch.allclose(to_torch(xT_grad), xtorch_grad), \
-                'Backward evaluation failed.'
-        assert to_torch(xT_grad).shape == xtorch_grad.shape, \
-                'Backward shapes do not match.'
+        compare_tensors(xT_grad, xtorch_grad, 'Backward evaluation failed.')
     
     # - Test cases -
     s1 = np.random.randint(1, 10, size=(1, )) # Scalar
@@ -397,6 +425,86 @@ def test_sigmoid():
     test_single_sigmoid(s2)
     s3 = np.random.randint(1, 10, size=(5, )) # Tensor
     test_single_sigmoid(s3)
+
+# - Softmax -
+def test_softmax():
+    
+    def test_single_softmax(size, axis):
+        x = np.random.uniform(-1, 1, size)
+        gradient = np.random.uniform(-1, 1, size)
+
+        # - My Tensor computation -
+        xT = Tensor(x, requires_grad=True)
+        gradientT = gradient
+        outT = xT.softmax(axis)
+        outT.backward(gradientT)
+        xT_grad = xT.grad
+
+        # - Pytorch computation -
+        xtorch = torch.from_numpy(x).requires_grad_(True)
+        gradienttorch = torch.from_numpy(gradient)
+        outtorch = torch.nn.functional.softmax(xtorch, dim=axis)
+        outtorch.backward(gradienttorch)
+        xtorch_grad = xtorch.grad
+
+        # - Testing -
+        # Forward
+        compare_tensors(outT.item, outtorch, "Forward evaluation failed.")
+        # Backward
+        compare_tensors(xT_grad, xtorch_grad, 'Backward evaluation failed.')
+    
+    # - Test cases -
+    test_single_softmax((3, ), axis=-1)
+    test_single_softmax((7, 11), axis=0)
+    test_single_softmax((2, 5, 13, 7), axis=1)
+
+# - Divide - 
+def test_divide():
+
+    def test_single_divide(size1: tuple, size2: tuple):
+        # Sample random +1 or -1
+        sign1 = 1 if np.random.rand(1) > 0.5 else -1
+        sign2 = 1 if np.random.rand(1) > 0.5 else -1
+        # Create random tensors
+        x1 = np.random.uniform(sign1*0.1, sign1*5, size1)
+        x2 = np.random.uniform(sign2*0.1, sign2*5, size2)
+        gradient = np.random.uniform(-1, 1, size=(x1/x2).shape)
+
+        # - My Tensor computation -
+        x1T = Tensor(x1, requires_grad=True)
+        x2T = Tensor(x2, requires_grad=True)
+        gradientT = gradient
+        outT = x1T*x2T
+        outT.backward(gradientT)
+        x1T_grad, x2T_grad = x1T.grad, x2T.grad
+
+        # - Pytorch computation -
+        x1torch = torch.from_numpy(x1).requires_grad_(True)
+        x2torch = torch.from_numpy(x2).requires_grad_(True)
+        gradienttorch = torch.from_numpy(gradient)
+        outtorch = x1torch*x2torch
+        outtorch.backward(gradienttorch)
+        x1torch_grad, x2torch_grad = x1torch.grad, x2torch.grad      
+
+        # - Testing -
+        # Forward
+        compare_tensors(outT.item, outtorch, 'Forward evaluation failed.')
+        # Backward
+        compare_tensors(x1T_grad, x1torch_grad, 'Backward evaluation failed.')
+        compare_tensors(x2T_grad, x2torch_grad, 'Backward evaluation failed.') 
+
+        # - Test cases -
+    # No broadcasting
+    s1 = np.random.randint(1, 10, size=(6,))
+    test_single_divide((s1[0], s1[1], s1[2]), (s1[0], s1[1], s1[2]))
+    test_single_divide((s1[3], s1[4], s1[5]), (s1[3], s1[4], s1[5]))
+    # Scalar-Tensor division
+    s2 = np.random.randint(1, 20, size=(5,))
+    test_single_divide((), (s2[0], s2[1]))
+    test_single_divide((s2[2], s2[3], s2[4]), ())
+    # Lots of broadcasting
+    test_single_divide((6, 3, 1, 8, 1), (3, 7, 1, 9))
+    test_single_divide((1, 5, 1, 1), (9, 4, 4, 1, 2, 1))
 
 # - Test a combination of the above operations -
 def test_full():
@@ -430,8 +538,12 @@ def test_full():
     outtorch.backward(gradienttorch)
 
     # - Testing -
-    assert torch.allclose(to_torch(x1T.grad), x1torch.grad)
-    assert torch.allclose(to_torch(x2T.grad), x2torch.grad)
-    assert torch.allclose(to_torch(x3T.grad), x3torch.grad)
-    assert torch.allclose(to_torch(x4T.grad), x4torch.grad)
-    assert torch.allclose(to_torch(x5T.grad), x5torch.grad)
+    # Forward
+    compare_tensors(outT.item, outtorch, 'Forward evaluation failed.')
+    # Backward
+    compare_tensors(x1T.grad, x1torch.grad, 'Backward evaluation failed.')
+    compare_tensors(x2T.grad, x2torch.grad, 'Backward evaluation failed.')
+    compare_tensors(x3T.grad, x3torch.grad, 'Backward evaluation failed.')
+    compare_tensors(x4T.grad, x4torch.grad, 'Backward evaluation failed.')
+    compare_tensors(x5T.grad, x5torch.grad, 'Backward evaluation failed.')
+    

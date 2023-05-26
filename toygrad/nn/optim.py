@@ -8,7 +8,7 @@ import numpy as np
 # - ADAM -
 class ADAM:
 
-    def __init__(self, parameters, lr, betas=(0.9, 0.999), eps=1e-8, weight_decay=0):
+    def __init__(self, parameters, lr, betas=(0.9, 0.999), eps=1e-8, weight_decay=0, maximize=False):
         """ Caution: the optimizer must be initialized each time the model is trained.
             This is because of the t_global variable is define in this way. """
         # Store values
@@ -17,6 +17,7 @@ class ADAM:
         self.betas = betas
         self.eps = eps
         self.weight_decay = weight_decay
+        self.maximize = maximize
         # Global iteration time
         self.t_global = 0
         # Initialize velocities and momentums
@@ -42,7 +43,10 @@ class ADAM:
             m_hat = self.momentums[ind]/(1 - b1**self.t_global)
             v_hat = self.velocities[ind]/(1 - b2**self.t_global)
             # Update network parameters
-            self.parameters[ind].item = p.item - self.lr*m_hat/(np.sqrt(v_hat) + self.eps)
+            if not self.maximize:
+                self.parameters[ind].item = p.item - self.lr*m_hat/(np.sqrt(v_hat) + self.eps)
+            else:
+                self.parameters[ind].item = p.item + self.lr*m_hat/(np.sqrt(v_hat) + self.eps)
         
     def zero_grad(self):
         # Set to zero the gradient of the parameters
@@ -52,12 +56,13 @@ class ADAM:
 # - Stochastic Gradient Descent (SGD) with Momentum -
 class SGD:
 
-    def __init__(self, parameters, lr, momentum=0, weight_decay=0):
+    def __init__(self, parameters, lr, momentum=0, weight_decay=0, maximize=False):
         # Store values
         self.parameters = parameters
         self.lr = lr
         self.momentum = momentum
         self.weight_decay = weight_decay
+        self.maximize = maximize
         # Initialize velocities for momentum
         self.velocities = []
         for p in self.parameters:
@@ -73,7 +78,10 @@ class SGD:
             # Update velocity vector
             self.velocities[ind] = p_grad + self.momentum*v
             # Update network parameters
-            self.parameters[ind].item = p.item - self.lr*self.velocities[ind]
+            if not self.maximize:
+                self.parameters[ind].item = p.item - self.lr*self.velocities[ind]
+            else:
+                self.parameters[ind].item = p.item + self.lr*self.velocities[ind]
     
     def zero_grad(self):
         # Set to zero the gradient of the parameters

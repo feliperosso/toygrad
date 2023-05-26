@@ -58,7 +58,7 @@ class Linear(nnModule):
                         requires_grad=True
                         ))
     
-    def forward(self, input:Tensor) -> Tensor:
+    def forward(self, input: Tensor) -> Tensor:
         """ Input dim: (*, dim_in)
             Output dim: (*, dim_out) """
         output = input.matmul(self.weight) + self.bias
