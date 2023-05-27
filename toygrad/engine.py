@@ -10,7 +10,7 @@ class Tensor:
 
     def __init__(self, value: np.ndarray, children: tuple=(), requires_grad: bool=False) -> None:
         # Forward
-        self.item = value
+        self.item = value if not isinstance(value, int) else np.array([value])
         # Backward
         self.requires_grad = requires_grad
         if requires_grad:
@@ -359,7 +359,7 @@ class Tensor:
     #   return 
         
     # - Backward -
-    def backward(self, gradient: np.ndarray=np.array(1)):
+    def backward(self, gradient: np.ndarray=np.array([1])):
         """ gradient is np.array that must have the shape of self.item """
         # Check the gradient dimension is correct
         assert gradient.shape == self.item.shape, \
