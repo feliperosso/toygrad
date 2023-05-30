@@ -253,6 +253,44 @@ class Tensor:
             out._backward = _backward
         return out
 
+    # - Maximum -
+    def maximum(self, other: Tensor) -> Tensor:
+        self.check_instance(other)
+        # Forward 
+        out = Tensor(np.maximum(self.item, other.item))
+        if self.requires_grad or other.requires_grad:
+            # Update tensor parameters
+            out.__init__(out.item, children=(self, other), requires_grad=True)
+            # Backward
+            def _backward():
+                if self.requires_grad:
+                    self_mask = (self.item > other.item) + (self.item == other.item)/2
+                    self.grad += self_mask*out.grad
+                if other.requires_grad:
+                    other_mask = (other.item > self.item) + (other.item == self.item)/2
+                    other.grad += other_mask*out.grad
+            out._backward = _backward
+        return out
+
+    # - Minimum -
+    def minimum(self, other: Tensor) -> Tensor:
+        self.check_instance(other)
+        # Forward 
+        out = Tensor(np.minimum(self.item, other.item))
+        if self.requires_grad or other.requires_grad:
+            # Update tensor parameters
+            out.__init__(out.item, children=(self, other), requires_grad=True)
+            # Backward
+            def _backward():
+                if self.requires_grad:
+                    self_mask = (self.item < other.item) + (self.item == other.item)/2
+                    self.grad += self_mask*out.grad
+                if other.requires_grad:
+                    other_mask = (other.item < self.item) + (other.item == self.item)/2
+                    other.grad += other_mask*out.grad
+            out._backward = _backward
+        return out
+
     # - Sum -
     def sum(self, dims_sumed: tuple=None) -> Tensor:
         if dims_sumed == None:
@@ -354,9 +392,6 @@ class Tensor:
             # Update _backward function of out                    
             out._backward = _backward
         return out
-
-    #def __rtruediv__(self, other: Tensor) -> Tensor:
-    #   return 
         
     # - Backward -
     def backward(self, gradient: np.ndarray=np.array([1])):
