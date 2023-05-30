@@ -1,5 +1,30 @@
 """
 engine.py
+
+This module defines the Tensor class, which is the backbone of all the capabilities of 
+the toygrad package. It basically takes numpy tensors as input and enhances their 
+functionality by granting them automatic differentiation capabilities. The following 
+forward and backward operations can be implemented on any instance of the Tensor class:
+
+Cross Entropy
+Addition
+Slicing
+Logarithm
+Matrix Multiplication
+Elementwise Multiplication/Division
+ReLU
+Reshape
+Maxiumum/Minimum
+Sum
+Sigmoid
+Softmax
+
+These operations are compatible with numpy's broadcasting of tensors. If an additional
+operation is required for a particular purpose, it shouldn't be too difficult to implement
+it by extending this module.
+
+Note: Inspired by Andrej Karpathy's micrograd, which implements a similar system but for scalars.
+https://github.com/karpathy/micrograd
 """
 
 # Load packages
@@ -404,14 +429,14 @@ class Tensor:
         # the gradients are computed in the right order
         topo = []
         visited = set()
-        def build_topo(v):
+        def depth_first(v):
             if v not in visited:
                 visited.add(v)
                 if v.requires_grad:
                     for child in v.children:
-                        build_topo(child)
+                        depth_first(child)
                     topo.append(v)
-        build_topo(self)
+        depth_first(self)
         # Accumulate gradients
         self.grad = gradient
         for tensor in topo[::-1]:

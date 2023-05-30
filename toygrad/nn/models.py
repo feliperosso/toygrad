@@ -1,4 +1,16 @@
-""" models.py """
+""" models.py 
+
+This modules defines the following two models:
+
+1. MNISTNetwork: A simple fully connected network with Dropout
+and ReLU activation functions which can be used to classify the MNIST dataset.
+
+2. RLPolicyGradient: Defines a policy from a fully connected network which can 
+be trained using two variants of Vanilla Policy Gradient or PPO. It also contains 
+a value estimation network which is initialized with the policy and used during 
+training.
+
+"""
 
 # Load packages
 import numpy as np

@@ -1,8 +1,8 @@
 """
 layers.py
 
-Construct some of the basic layers using the Tensor class defined in engine.py
-of the toygrad package
+Construct some of the basic layers using the Tensor class
+defined in engine.py of the toygrad package
 """
 
 # Load packages

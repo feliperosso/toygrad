@@ -1,5 +1,8 @@
 """
 optim.py
+
+Construct simple optimizers to be used for training the networks
+defined in models.py
 """
 
 # Load packages
