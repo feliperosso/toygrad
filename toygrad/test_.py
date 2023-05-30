@@ -352,6 +352,92 @@ def test_reshape():
     s3 = np.random.randint(1, 10, size=(4, ))
     test_single_reshape((s3[0]*s3[1], s3[2], s3[3]), (s3[2], s3[0], s3[1], s3[3]))
 
+# - Minimum -
+def test_maximum():
+
+    def test_single_maximum(x1: np.ndarray, x2: np.ndarray):
+        gradient = np.random.uniform(-1, 1, x1.shape)
+        
+        # - My Tensor computation -
+        x1T = Tensor(x1, requires_grad=True)
+        x2T = Tensor(x2, requires_grad=True)
+        gradientT = gradient
+        outT = x1T.maximum(x2T)
+        outT.backward(gradientT)
+        x1T_grad, x2T_grad = x1T.grad, x2T.grad
+
+        # - Pytorch computation -
+        x1torch = torch.from_numpy(x1).requires_grad_(True)
+        x2torch = torch.from_numpy(x2).requires_grad_(True)
+        gradienttorch = torch.from_numpy(gradient)
+        outtorch = torch.maximum(x1torch, x2torch)
+        outtorch.backward(gradienttorch)
+        x1torch_grad, x2torch_grad = x1torch.grad, x2torch.grad
+
+        # - Testing -
+        # Forward
+        compare_tensors(outT.item, outtorch, "Forward evaluation failed.")
+        # Backward
+        compare_tensors(x1T_grad, x1torch_grad, 'Backward evaluation failed.')
+        compare_tensors(x2T_grad, x2torch_grad, 'Backward evaluation failed.')
+
+    # - Test cases -
+    # Random vectors
+    s1 = tuple(np.random.randint(1, 10, size=(3, )))
+    x1, x2 = np.random.uniform(-1, 1, s1), np.random.uniform(-1, 1, s1)
+    test_single_maximum(x1, x2)
+    s2 = tuple(np.random.randint(1, 10, size=(6, )))
+    x1, x2 = np.random.uniform(-1, 1, s2), np.random.uniform(-1, 1, s2)
+    test_single_maximum(x1, x2)
+    # Integer vectors (have some equal values)
+    int_range, shape = 14, (4, 3, 7, 1, 9)
+    x1 = np.random.randint(1, int_range, shape).astype('float')
+    x2 = np.random.randint(1, int_range, shape).astype('float')
+    test_single_maximum(x1, x2)
+
+# - Minimum -
+def test_minimum():
+
+    def test_single_minimum(x1: np.ndarray, x2: np.ndarray):
+        gradient = np.random.uniform(-1, 1, x1.shape)
+        
+        # - My Tensor computation -
+        x1T = Tensor(x1, requires_grad=True)
+        x2T = Tensor(x2, requires_grad=True)
+        gradientT = gradient
+        outT = x1T.minimum(x2T)
+        outT.backward(gradientT)
+        x1T_grad, x2T_grad = x1T.grad, x2T.grad
+
+        # - Pytorch computation -
+        x1torch = torch.from_numpy(x1).requires_grad_(True)
+        x2torch = torch.from_numpy(x2).requires_grad_(True)
+        gradienttorch = torch.from_numpy(gradient)
+        outtorch = torch.minimum(x1torch, x2torch)
+        outtorch.backward(gradienttorch)
+        x1torch_grad, x2torch_grad = x1torch.grad, x2torch.grad
+
+        # - Testing -
+        # Forward
+        compare_tensors(outT.item, outtorch, "Forward evaluation failed.")
+        # Backward
+        compare_tensors(x1T_grad, x1torch_grad, 'Backward evaluation failed.')
+        compare_tensors(x2T_grad, x2torch_grad, 'Backward evaluation failed.')
+
+    # - Test cases -
+    # Random vectors
+    s1 = tuple(np.random.randint(1, 10, size=(3, )))
+    x1, x2 = np.random.uniform(-1, 1, s1), np.random.uniform(-1, 1, s1)
+    test_single_minimum(x1, x2)
+    s2 = tuple(np.random.randint(1, 10, size=(6, )))
+    x1, x2 = np.random.uniform(-1, 1, s2), np.random.uniform(-1, 1, s2)
+    test_single_minimum(x1, x2)
+    # Integer vectors (have some equal values)
+    int_range, shape = 14, (4, 3, 7, 1, 9)
+    x1 = np.random.randint(1, int_range, shape).astype('float')
+    x2 = np.random.randint(1, int_range, shape).astype('float')
+    test_single_minimum(x1, x2)
+
 # - Sum -
 def test_sum():
 
