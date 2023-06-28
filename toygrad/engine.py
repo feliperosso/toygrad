@@ -60,6 +60,9 @@ class Tensor:
         else:
             return pre_grad
 
+    def __repr__(self):
+        return f"Tensor {self.item}." if not self.requires_grad else f"Tensor {self.item}, grad {self.grad}"
+
     # - Cross Entropy -
     def cross_entropy(self, y_prob: Tensor) -> Tensor:
         """ self is nn_logits: (num_batches, nn_dim_out)
@@ -425,18 +428,17 @@ class Tensor:
         assert gradient.shape == self.item.shape, \
                 "A gradient with the same shape as the item"\
                 " must be supplied"
-        # Depth-first search of the graph to ensure
-        # the gradients are computed in the right order
+        # Topological ordering of the graph
         topo = []
         visited = set()
-        def depth_first(v):
+        def top_ord(v):
             if v not in visited:
                 visited.add(v)
                 if v.requires_grad:
                     for child in v.children:
-                        depth_first(child)
+                        top_ord(child)
                     topo.append(v)
-        depth_first(self)
+        top_ord(self)
         # Accumulate gradients
         self.grad = gradient
         for tensor in topo[::-1]:
