@@ -7,7 +7,7 @@ This repository was built with the following two objectives in mind:
 
 We construct our own automatic differentiation engine, built on top of the numpy tensors. We have drawn inspiration 
 from Andrej Karpathy's [micrograd](https://github.com/karpathy/micrograd) package, which has an analogous implementation
-but for scalars. Using the toygrad engine, we then use it to construct an RL policy which can be trained 
+but for scalars. Using the toygrad engine, we construct an RL policy which can be trained 
 using several policy gradient algorithms, including [Proximal Policy Optimization](https://arxiv.org/pdf/1707.06347.pdf) (PPO). 
 
 We should stress no specialized neural network library such as Pytorch is used in the building of this repository. Everything is basically built from scratch using numpy tensors. Two demos are included to show what is possible with this package:
